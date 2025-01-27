@@ -1,43 +1,35 @@
-const embedMarketoForm = (block, formId) => {
+const loadScript = (src, block) => new Promise((resolve, reject) => {
   const marketoScript = document.createElement('script');
-  marketoScript.src = 'https://www2.mammotome.com/js/forms2/js/forms2.min.js';
+  marketoScript.src = src;
+  marketoScript.onload = () => resolve();
+  marketoScript.onerror = () => reject(new Error(`Failed to load script: ${src}`));
+  block.appendChild(marketoScript);
+});
 
-  marketoScript.onload = () => {
+const embedMarketoForm = async (block, formId) => {
+  try {
+    await loadScript('//www2.mammotome.com/js/forms2/js/forms2.min.js', block);
     const formElement = document.createElement('form');
     formElement.id = `mktoForm_${formId}`;
     block.appendChild(formElement);
     if (window.MktoForms2) {
-      console.log('MktoForms2 is loading...');
-      MktoForms2.loadForm('https://www2.mammotome.com', '435-TDP-284', formId, (form) => {
-        form.onSuccess((values, followUpUrl) => {
-          console.log('Form submitted: ', values);
-          if (followUpUrl) {
-            window.location.href = followUpUrl;
-          } else {
-            // testing redirect only
-            window.location.href = 'https://mammotome.com/us/en/';
-          }
+      MktoForms2.loadForm('//www2.mammotome.com', '435-TDP-284', formId, (form) => {
+        form.onSuccess((followUpUrl) => {
+          window.location.href = followUpUrl;
           return false;
         });
       });
     } else {
-      console.error('MktoForms2 is not available.');
+      console.error('MktoForms2 failed.');
     }
-  };
-  marketoScript.onerror = () => {
-    console.error('Failed to load the Marketo script.');
-    block.textContent = 'Error: Unable to load the Marketo form. Please try again later.';
-  };
-  block.appendChild(marketoScript);
+  } catch (error) {
+    console.error('Error embedding Marketo form:', error);
+    block.textContent = 'Error: Unable to load the form. Please try again later.';
+  }
 };
 
 export default async function decorate(block) {
   const formId = block.textContent.trim();
-  if (!formId) {
-    console.error('Error: No form ID provided.');
-    block.textContent = 'Error: Form ID is required to display the form.';
-    return;
-  }
   block.textContent = '';
-  embedMarketoForm(block, formId);
+  await embedMarketoForm(block, formId);
 }
